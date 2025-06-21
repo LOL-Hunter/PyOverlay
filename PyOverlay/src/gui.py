@@ -3,7 +3,7 @@ from PyOverlay.src.pluginManager import PluginManager
 from PyOverlay.src.constants import STYLE_GROUP as SG, LOAD_STYLE, OPEN_AT_START
 from PyOverlay.src.settings import Settings
 from PyOverlay.src.configLoader import Config
-from pysettings import tk
+import tksimple as tk
 from pyautogui import position, size
 import threading as th
 import time as t
@@ -59,8 +59,7 @@ class Overlay(tk.Toplevel):
     def setMoveAble(self, b):
         """
         Set Overlay moveable or not. 
-        
-        
+
         @param b: 
         @return: 
         """
@@ -152,16 +151,16 @@ class SettingsMenu:
     def update(self):
         alwtop = self._alwaysTop.getValue()
         Window.WINDOW.setAllwaysOnTop(alwtop)
-class Window(tk.Toplevel):
+class Window(tk.Tk):
     WINDOW = None
-    def __init__(self, _master="Tk", devMode=False):
+    def __init__(self, devMode=False):
         Window.WINDOW = self
         Settings.WINDOW = self
-        self.__master = _master
         self.devMode = devMode
-        super().__init__(_master, topMost=True)
+        super().__init__()
         LOAD_STYLE()
         SG.add(self)
+        self.setTopmost()
         self.overrideredirect()
         self.loadingFrame = tk.Frame(self, SG)
         self.loadingFrame.placeRelative()
@@ -224,8 +223,9 @@ class Window(tk.Toplevel):
         """
         t.sleep(.1)
         self.updateDynamicWidgets()
-        self.loadingFrame.destroy()
+        self.loadingFrame.placeForget()
         PluginManager.call("onEnable")
+        self.updateMenuState()
         #th.Thread(target=self.updateLoop).start()
     def updateSquareSize(self):
         x = Config.SETTINGS_CONFIG.get("square_size", 10)
@@ -272,11 +272,6 @@ class Window(tk.Toplevel):
     def hide(self):
         super().hide()
     def minimize(self):
-        """
-        Minimize window.
-
-        @return:
-        """
         self._activePage.hide()
         self.updateSquareSize()
         x = Config.SETTINGS_CONFIG.get("square_size", 10)
@@ -287,7 +282,6 @@ class Window(tk.Toplevel):
         self.setWindowSize(*self._windowSize)
         self._activePage.show()
         PluginManager.call("onOpen")
-
     def overlayListBoxSelect(self):
         sel = self.overlayListBox.getSelectedItem()
         if sel is None and self._overlay_move: return
@@ -295,13 +289,19 @@ class Window(tk.Toplevel):
             o.unHighlight()
         overlay = Overlay.OVERLAY_NAME[sel]
         overlay.highlight()
+    def updateMenuState(self):
+        if self._isMinimized:
+            self.minimize()
+        else:
+            self.maximise()
+    def toggleMenuState(self):
+        self._isMinimized = not self._isMinimized
     def _onDragClickRelease(self, e):
         if self._isMotioned:
             self._isMotioned = False
         else:
-            if self._isMinimized: self.maximise()
-            else: self.minimize()
-            self._isMinimized = not self._isMinimized
+            self.toggleMenuState()
+            self.updateMenuState()
     def _onDragEnter(self, e):
         self.setCursor(tk.Cursor.WIN_FOUR_ARROW)
     def _onDragLeave(self, e):
